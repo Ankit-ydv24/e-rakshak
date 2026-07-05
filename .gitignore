@@ -1,0 +1,85 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env & secrets
+.env
+*.local
+
+# Runtime data. Reports/charts are rendered FROM case data, so they inherit its
+# sensitivity — generated output never gets committed.
+data/uploads/*
+!data/uploads/.gitkeep
+data/outputs/*
+!data/outputs/.gitkeep
+data/samples/*
+!data/samples/.gitkeep
+data/*.db
+data/*.sqlite3
+data/analysis_cache/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REAL CASE DATA — DENY BY DEFAULT.
+# datasets/ holds FIR evidence: bank statements, CDR, IPDR, CCTV, personal docs
+# on real people. Everything here is ignored unless explicitly allow-listed
+# below, so a new case folder is never committed just because nobody added a
+# rule for it. Only the synthetic generator output is allowed through.
+# ─────────────────────────────────────────────────────────────────────────────
+datasets/*
+!datasets/raw/
+!datasets/metadata/
+!datasets/entity_map.template.csv
+
+datasets/raw/*
+# These two are the ONLY tracked paths under datasets/, so anything written into
+# them is committable — including uploaded evidence, which no pattern here can
+# distinguish from a fixture (both are a .csv in bank/). /v1/upload therefore
+# refuses these two dataset names outright; see FIXTURE_DATASETS in
+# backend/app/api/main.py. Real case files landed in datasets/raw/smoke/other/
+# once already, before that guard existed.
+!datasets/raw/demo/
+!datasets/raw/smoke/
+
+datasets/metadata/*
+!datasets/metadata/demo_metadata.json
+!datasets/metadata/smoke_metadata.json
+
+# Archives of case data
+*.zip
+
+!**/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Per-machine tool settings (paths differ per developer)
+.claude/settings.local.json
+
+# Node (frontend, later)
+node_modules/
+frontend/build/
+frontend/dist/
+
+# Scratch analysis scripts. Already excluded from the Docker build context; ignored
+# here too because these are written against a live case and end up embedding real
+# identifiers — a complaint reference (complaint_<ref>) was found
+# hardcoded in one. Scratch that names evidence is evidence.
+artifacts/
+
+# `docs/handbook/` is the teammate onboarding entry point and IS tracked. It was briefly
+# untracked on 31 Jul because DECISIONS.md carried live MSISDNs, IMEIs and IMSIs from the FIR
+# IPDR — rule 4. Those are now redacted (the argument never needed the values, only that all six
+# appear in zero files outside `ipdr/`), so the folder is tracked again.
+#
+# Before committing anything in it, sweep for identifiers:
+#   grep -nE "(^|[^0-9])([6-9][0-9]{9}|[0-9]{15,16})([^0-9]|$)" "docs/handbook/"*.md
+docs/gaps_in_current_system.MD
+demo_video
