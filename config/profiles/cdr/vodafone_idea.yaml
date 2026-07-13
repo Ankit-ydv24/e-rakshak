@@ -1,0 +1,57 @@
+# Real Vodafone-Idea CDR export (FIR case data). Metadata preamble then a table
+# (a dashes row sits right under the header — ingestion skips non-data rows).
+profile:
+  id: cdr_vodafone_idea
+  source: CDR
+  event_type: CALL
+  match:
+    # Must stay in step with the entity_phone aliases below: required_any is the gate
+    # that says "this file is this kind of thing", so any header that can carry the
+    # A-party belongs here. The underscore variants (Mobile_No / Other_Party_No) are a
+    # real export dialect — omitting them meant those files failed the gate and were
+    # dropped entirely once required_any started being enforced.
+    required_any:
+      - "Target /A PARTY NUMBER"
+      - "A PARTY NUMBER"
+      - "Mobile_No"
+      - "Call Initiation Time"
+      - "Call_Initiation_Time(CIT)"
+    required_all: []
+field_map:
+  entity_phone:
+    aliases: ["Target /A PARTY NUMBER", "A PARTY NUMBER", "Mobile_No"]
+    type: phone
+  # Shared Target/A alias is OK — field_mapper can fill multiple targets from one header.
+  target_phone:
+    aliases: ["Target /A PARTY NUMBER", "Target No", "Target Number", "Target MSISDN"]
+    type: phone
+  counterparty_phone:
+    aliases: ["B PARTY NUMBER", "Other_Party_No"]
+    type: phone
+  direction:
+    aliases: ["CALL_TYPE", "Call_Type"]
+    type: string
+  date_col:
+    aliases: ["Call date", "Call_Date"]
+    type: date
+  time_col:
+    aliases: ["Call Initiation Time", "Call_Initiation_Time(CIT)"]
+    type: time
+  attributes.duration:
+    aliases: ["Call Duration", "Call_Duration"]
+    type: int
+  imei:
+    aliases: ["IMEI"]
+    type: string
+  imsi:
+    aliases: ["IMSI"]
+    type: string
+  attributes.cell_id:
+    aliases: ["First Cell Global Id", "First_Cell_id"]
+    type: string
+  attributes.location:
+    aliases: ["First BTS Location", "First_Cell_Desc"]
+    type: string
+  attributes.circle:
+    aliases: ["Roaming Network/Circle", "Roaming Circle"]
+    type: string
