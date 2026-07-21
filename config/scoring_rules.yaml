@@ -1,0 +1,100 @@
+# ERakshak — anomaly detection thresholds & risk weights (FR-11/12/13, NFR-3)
+# FATF-style configurable defaults (Q5 = ASSUMED). Tune with analyst feedback / real data.
+# Every rule is independently toggleable and weighted into the composite risk score.
+
+rules:
+  structuring:
+    enabled: true
+    # Transactions clustered just below a reporting threshold (smurfing)
+    reporting_threshold_inr: 1000000        # INR 10 lakh (illustrative; confirm Q5)
+    just_below_band_pct: 0.10               # within 10% below the threshold
+    min_occurrences: 3                      # >= 3 such txns in the window
+    window_hours: 24
+    weight: 0.20
+
+  rapid_in_out:
+    enabled: true
+    # Money credited then debited quickly (pass-through)
+    max_hold_minutes: 60
+    min_forwarded_pct: 0.80                 # >= 80% of credit forwarded
+    weight: 0.20
+
+  layering:
+    enabled: true
+    # Funds hop across >= N accounts within a short span
+    min_hops: 3
+    max_span_hours: 48
+    min_amount_inr: 10000        # D1: ignore tiny INR hops (noise); crypto edges always kept
+    weight: 0.15
+
+  circular_flow:
+    enabled: true
+    # A -> B -> ... -> A money loop detected in the graph
+    max_cycle_length: 6
+    min_amount_inr: 10000        # D1: ignore tiny INR loops (noise); crypto edges always kept
+    weight: 0.15
+
+  mule_account:
+    enabled: true
+    # Many-in / rapid-out with high counterparty fan-in
+    min_fan_in: 5
+    max_hold_minutes: 120
+    min_forwarded_pct: 0.70
+    weight: 0.15
+
+  call_transfer_coincidence:
+    enabled: true
+    # The signature fusion pattern: call + online(IP) + transfer within window.
+    #
+    # There is deliberately NO window_minutes here. One was declared, described as mirroring
+    # correlation.default_window_minutes, and never read by anything — this rule counts hits
+    # the correlation stage has already produced, so the window was applied upstream and
+    # editing it here changed nothing. A tunable that silently does nothing is worse than an
+    # absent one: it invites an analyst to widen the window in the wrong file and conclude the
+    # evidence is not there. The real setting is `correlation.default_window_minutes` in
+    # settings.yaml, overridable per request via ?window=.
+    weight: 0.15
+    # A MEDIUM hit is the same call+transfer pair with NO corroborating IP session, so it is
+    # weaker evidence and is not scored as a STRONG one.
+    #
+    # Measured on the demo set. Firing on MEDIUM at all takes this rule's entity-level recall
+    # from 0.500 to 1.000 — it catches both ends of the call instead of one — at a precision
+    # cost of 0.333 -> 0.200, which sits in the same range as the accepted `layering` (0.195)
+    # and above `rapid_in_out` (0.107). It is also the only tier that occurs on either real
+    # case, where STRONG is 0. That is the case for firing.
+    #
+    # The case for HALVING is evidential, not empirical: at the full 0.15 every one of the 30
+    # eligible demo entities received the identical +10.5, which adds no ranking information
+    # at all. Halving does NOT change which entities change band here — the same three cross
+    # into medium in both arms (+5.2 vs +10.5 from 37.3/38.9/39.8), and each of the three
+    # already carried three other typologies, so MEDIUM was their fourth signal and not their
+    # only one. Do not claim this setting suppresses promotions; it sizes the contribution to
+    # the strength of the evidence behind it.
+    medium_weight: 0.075
+
+  comm_burst:
+    enabled: true
+    # Unusually many calls in a short window (coordination / spam-dial signature)
+    max_calls_per_hour: 30
+    weight: 0.10
+
+  dormant_activation:
+    enabled: true
+    # Account inactive for a long time, then suddenly transacting again
+    min_dormancy_days: 90
+    weight: 0.10
+
+# Composite risk score (0-100). ML anomaly score blended with rule hits.
+risk_score:
+  ml_weight: 0.30                           # Isolation Forest contribution
+  rules_weight: 0.70                        # weighted rule hits contribution
+  bands:
+    low: [0, 39]
+    medium: [40, 69]
+    high: [70, 100]
+
+ml:
+  isolation_forest:
+    enabled: true
+    contamination: 0.05                     # expected anomaly fraction (tune on data)
+    random_state: 42
